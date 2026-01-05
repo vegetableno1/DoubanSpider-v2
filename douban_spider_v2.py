@@ -23,19 +23,22 @@ hds = [
 ]
 
 
-def book_spider(book_tag, max_pages=3):
+def book_spider(book_tag, max_pages=3, min_people=300):
     """
     爬取指定标签的豆瓣书籍信息
     book_tag: 书籍标签
     max_pages: 最多爬取页数（默认3页，避免被封）
+    min_people: 最少评价人数（默认300人，低于此数的书籍将被过滤）
     """
     page_num = 0
     book_list = []
     try_times = 0
     max_try_times = 5
+    filtered_count = 0  # 统计被过滤的书籍数量
 
     print(f"\n{'='*60}")
     print(f"开始爬取标签: {book_tag}")
+    print(f"筛选条件: 评价人数 >= {min_people} 人")
     print(f"{'='*60}")
 
     while page_num < max_pages:
@@ -127,15 +130,20 @@ def book_spider(book_tag, max_pages=3):
                 desc_elem = book_info.find('p')
                 description = desc_elem.get_text().strip() if desc_elem else ''
 
-                book_list.append({
-                    'title': title,
-                    'rating': rating,
-                    'people_num': people_num,
-                    'author': author,
-                    'publisher': publisher_info,
-                    'url': book_url,
-                    'description': description[:100] if description else ''  # 只保存前100字
-                })
+                # 筛选条件：评价人数 >= min_people
+                if int(people_num) >= min_people:
+                    book_list.append({
+                        'title': title,
+                        'rating': rating,
+                        'people_num': people_num,
+                        'author': author,
+                        'publisher': publisher_info,
+                        'url': book_url,
+                        'description': description[:100] if description else ''  # 只保存前100字
+                    })
+                else:
+                    filtered_count += 1
+                    print(f"  ⚠ 过滤: 《{title}》 - 评价人数 {people_num} 人 (<{min_people})")
 
                 try_times = 0  # 重置失败计数
 
@@ -145,16 +153,24 @@ def book_spider(book_tag, max_pages=3):
 
         page_num += 1
 
-    print(f"\n标签 '{book_tag}' 爬取完成，共获取 {len(book_list)} 本书")
+    print(f"\n标签 '{book_tag}' 爬取完成:")
+    print(f"  ✓ 收录书籍: {len(book_list)} 本 (评价人数>={min_people})")
+    if filtered_count > 0:
+        print(f"  ⚠ 过滤书籍: {filtered_count} 本 (评价人数<{min_people})")
     return book_list
 
 
-def do_spider(book_tag_lists, max_pages=3):
-    """执行爬虫主程序"""
+def do_spider(book_tag_lists, max_pages=3, min_people=300):
+    """
+    执行爬虫主程序
+    book_tag_lists: 书籍标签列表
+    max_pages: 每个标签最多爬取页数
+    min_people: 最少评价人数筛选条件
+    """
     book_lists = []
 
     for book_tag in book_tag_lists:
-        book_list = book_spider(book_tag, max_pages)
+        book_list = book_spider(book_tag, max_pages, min_people)
         # 按评分排序（添加异常处理）
         def safe_rating(book):
             try:
@@ -237,12 +253,16 @@ def main():
     book_tag_lists = ['心理', '算法', '数据结构']
     # book_tag_lists = ['历史', '哲学', '经济']
 
+    # 筛选条件：最少评价人数（可根据需要修改）
+    min_people = 300
+
     print(f"\n将要爬取的标签: {', '.join(book_tag_lists)}")
+    print(f"筛选条件: 只收录评价人数 >= {min_people} 的书籍")
     print(f"注意: 为避免被豆瓣限制，每个标签最多爬取3页\n")
 
     try:
-        # 执行爬虫（每个标签最多3页）
-        book_lists = do_spider(book_tag_lists, max_pages=3)
+        # 执行爬虫（每个标签最多3页，只收录评价人数>=300的书籍）
+        book_lists = do_spider(book_tag_lists, max_pages=3, min_people=min_people)
 
         # 统计结果
         total_books = sum(len(books) for books in book_lists)
