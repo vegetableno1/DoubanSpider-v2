@@ -11,3 +11,6 @@ wheels/
 
 # Excel files
 *.xlsx
+
+# Internal documentation (not for public repo)
+IMPROVEMENT_SUGGESTIONS.md
